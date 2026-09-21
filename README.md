@@ -14,7 +14,7 @@ Running the code:
 after around 200 attempts the agent is clearly starting to get the hang of its environment, but theres still room for imporvement:
 ![180+ attemmpts](image-1.png)
 
-after 500 approx. attempts:
+after 500 approx. attempts the agent started to rely on its Q-table rather than random moves which we can see with epsilon having decayed to 0.1 from its initial 0.995 value ( which represents randomness). 
 ![alt text](image-2.png)
 
 after 750 attempts:
