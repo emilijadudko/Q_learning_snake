@@ -1,6 +1,7 @@
 import random
 import numpy as np
 import pygame
+import matplotlib.pyplot as plt
 
 GRID_SIZE = 20
 TILE_SIZE = 20
@@ -129,7 +130,41 @@ class SnakeEnvironment:
         next_state = self.get_state()
         return state, action, reward, next_state, game_over
 
+class ScorePlotter:
+    """Renders a live chart of scores and running average."""
 
+    def __init__(self):
+        plt.ion()  # Turn on interactive mode
+        self.fig, self.ax = plt.subplots(figsize=(6, 4))
+        self.scores = []
+        self.mean_scores = []
+        
+        self.ax.set_title("Q-Learning Snake agent progress")
+        self.ax.set_xlabel("Attempt")
+        self.ax.set_ylabel("Score")
+        
+        self.line_score, = self.ax.plot([], [], label="Score", alpha=0.5, color="skyblue")
+        self.line_mean, = self.ax.plot([], [], label="10-Game Mean", color="darkblue", linewidth=2)
+        self.ax.legend(loc="upper left")
+        self.fig.tight_layout()
+
+    def add_score(self, score: int):
+        self.scores.append(score)
+        
+        # Calculate moving average of last 10 games
+        recent_scores = self.scores[-10:]
+        self.mean_scores.append(np.mean(recent_scores))
+
+        attempts = list(range(1, len(self.scores) + 1))
+
+        self.line_score.set_data(attempts, self.scores)
+        self.line_mean.set_data(attempts, self.mean_scores)
+
+        self.ax.relim()
+        self.ax.autoscale_view()
+        self.fig.canvas.draw()
+        self.fig.canvas.flush_events()
+        
 class PygameRenderer:
     """Handles rendering to the Pygame screen independently."""
 
@@ -160,7 +195,6 @@ class PygameRenderer:
                 (c * self.tile_size, r * self.tile_size, self.tile_size - 2, self.tile_size - 2),
             )
 
-        # Draw Overlay Text (Attempts, Score, Epsilon)
         text_surface = self.font.render(
             f"Attempt: {attempts} | Score: {game.score} | Epsilon: {epsilon:.2f}", 
             True, 
@@ -180,6 +214,7 @@ if __name__ == "__main__":
     env = SnakeEnvironment(game)
     agent = QLearningAgent()
     renderer = PygameRenderer()
+    plotter = ScorePlotter() 
 
     attempts = 1  # Track total games played
 
@@ -197,6 +232,7 @@ if __name__ == "__main__":
 
         if game_over:
             print(f"Game Over! Attempt: {attempts} | Score: {game.score}")
+            plotter.add_score(game.score)
             attempts += 1
             agent.decay_epsilon()  # Reduce exploration rate gradually
             game.reset()
@@ -204,4 +240,4 @@ if __name__ == "__main__":
         renderer.render(game, attempts, agent.epsilon)
 
     renderer.close()
-    
+    plotter.fig.close()
