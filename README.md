@@ -9,4 +9,7 @@ Q-Learning is an algorithm that finds the best series of actions based on an age
 
 An agent uses a Q-table which to put simply is a data structure of sets of actions and states, and the Q-learning algorithm is used to update these values.
 
+Running the code:
+![Initial Startup](image.png)
+
 
