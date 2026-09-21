@@ -58,7 +58,7 @@ class SnakeGame:
 class QLearningAgent:
     """Handles Q-Table state updates and action selection"""
 
-    def __init__(self, alpha=0.1, gamma=0.9, epsilon=0.1, min_epsilon=0.01, epsilon_decay=0.995):
+    def __init__(self, alpha=0.1, gamma=0.9, epsilon=1.0, min_epsilon=0.01, epsilon_decay=0.999):
         self.q_table = {}
         self.alpha = alpha
         self.gamma = gamma
@@ -236,8 +236,13 @@ if __name__ == "__main__":
             plotter.add_score(game.score)
             attempts += 1
             agent.decay_epsilon()  # Reduce exploration rate gradually
-            game.reset()
-
+            
+            if attempts >= 750:  # Stops after 750 attempts
+                running = False
+            else:
+                game.reset()
+            
+            
         renderer.render(game, attempts, agent.epsilon)
 
     renderer.close()
