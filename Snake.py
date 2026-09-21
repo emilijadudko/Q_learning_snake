@@ -195,6 +195,7 @@ class PygameRenderer:
                 (c * self.tile_size, r * self.tile_size, self.tile_size - 2, self.tile_size - 2),
             )
 
+
         text_surface = self.font.render(
             f"Attempt: {attempts} | Score: {game.score} | Epsilon: {epsilon:.2f}", 
             True, 
