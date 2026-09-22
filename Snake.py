@@ -17,7 +17,8 @@ class SnakeGame:
         
     def reset(self):
         """Resets the game state to the initial configuration"""
-        self.snake = [(10,10), (10,11)]
+        #self.snake defines the initial snake length and position, starting in the middle of the grid as a single block
+        self.snake = [(10,10)]
         self.dir = 0
         self.score = 0
         self.food = self._place_food()
@@ -72,7 +73,7 @@ class QLearningAgent:
         return self.q_table[state]
 
     def choose_action(self, state):
-        # Clean epsilon-greedy search
+        #epsilon-greedy search
         if random.random() < self.epsilon:
             return random.randint(0, 2)
         q_vals = self._get_q_values(state)
@@ -185,8 +186,7 @@ class ScorePlotter:
 
     def add_score(self, score: int):
         self.scores.append(score)
-        
-        # Calculate moving average of last 10 games
+    
         recent_scores = self.scores[-10:]
         self.mean_scores.append(np.mean(recent_scores))
 
@@ -223,12 +223,18 @@ class PygameRenderer:
         )
         
         # Draw Snake
-        for r, c in game.snake:
+        for i, (r, c) in enumerate(game.snake):
+            if i == 0:
+                color = (0, 150, 255)  # Head color which is blue
+            else:
+                color = (50, 200, 50)   # Body color
+            
             pygame.draw.rect(
                 self.screen,
-                (50, 230, 100),
+                color,
                 (c * self.tile_size, r * self.tile_size, self.tile_size - 2, self.tile_size - 2),
             )
+        #making the snake head a different color to distinguish it from the body
 
 
         text_surface = self.font.render(
@@ -272,7 +278,7 @@ if __name__ == "__main__":
             attempts += 1
             agent.decay_epsilon()
             
-            if attempts >= 750:
+            if attempts >= 1000:
                 running = False
             else:
                 game.reset()
