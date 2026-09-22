@@ -30,6 +30,7 @@ As the snake grows, with the current setup it manages to reach rather high score
 
 The highest recorded score:
 ![Highest Score](image-10.png)
+
 Future Imporvements:
 
 To note:
