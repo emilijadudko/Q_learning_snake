@@ -58,7 +58,7 @@ class SnakeGame:
 class QLearningAgent:
     """Handles Q-Table state updates and action selection"""
 
-    def __init__(self, alpha=0.1, gamma=0.9, epsilon=1.0, min_epsilon=0.01, epsilon_decay=0.999):
+    def __init__(self, alpha=0.1, gamma=0.9, epsilon=1.0, min_epsilon=0.01, epsilon_decay=0.995):
         self.q_table = {}
         self.alpha = alpha
         self.gamma = gamma
@@ -66,26 +66,31 @@ class QLearningAgent:
         self.min_epsilon = min_epsilon
         self.epsilon_decay = epsilon_decay
 
-    def choose_action(self, state):
-        if random.random() < self.epsilon or state not in self.q_table:
-            return random.randint(0, 2)
-        return int(np.argmax(self.q_table[state]))
-
-    def update(self, state, action, reward, next_state):
+    def _get_q_values(self, state):
         if state not in self.q_table:
             self.q_table[state] = [0.0, 0.0, 0.0]
-        if next_state not in self.q_table:
-            self.q_table[next_state] = [0.0, 0.0, 0.0]
+        return self.q_table[state]
 
-        max_next = max(self.q_table[next_state])
-        self.q_table[state][action] += self.alpha * (
-            reward + self.gamma * max_next - self.q_table[state][action]
-        )
+    def choose_action(self, state):
+        # Clean epsilon-greedy search
+        if random.random() < self.epsilon:
+            return random.randint(0, 2)
+        q_vals = self._get_q_values(state)
+        return int(np.argmax(q_vals))
+
+    def update(self, state, action, reward, next_state, done):
+        q_vals = self._get_q_values(state)
+        
+        if done:
+            target = reward
+        else:
+            next_q_vals = self._get_q_values(next_state)
+            target = reward + self.gamma * max(next_q_vals)
+
+        q_vals[action] += self.alpha * (target - q_vals[action])
 
     def decay_epsilon(self):
-        """Optionally reduce randomness after every completed attempt."""
         self.epsilon = max(self.min_epsilon, self.epsilon * self.epsilon_decay)
-
 
 class SnakeEnvironment:
 
@@ -93,43 +98,73 @@ class SnakeEnvironment:
         self.game = game
 
     def get_state(self):
-        head = self.game.snake[0]
-        left_dir = (self.game.dir - 1) % 4
-        right_dir = (self.game.dir + 1) % 4
+        head_r, head_c = self.game.snake[0]
+        dir_idx = self.game.dir
+        left_dir = (dir_idx - 1) % 4
+        right_dir = (dir_idx + 1) % 4
 
         def is_danger(d):
             dr, dc = DIRECTIONS[d]
-            r, c = head[0] + dr, head[1] + dc
+            r, c = head_r + dr, head_c + dc
             if (r < 0 or r >= self.game.grid_size or 
                 c < 0 or c >= self.game.grid_size or 
-                (r, c) in self.game.snake):
+                (r, c) in self.game.snake[:-1]):
                 return 1
             return 0
 
+        # Vector from head to food in (row, col) coordinates
+        food_r, food_c = self.game.food
+        df_r = food_r - head_r
+        df_c = food_c - head_c
+
+        # Forward vector
+        dr, dc = DIRECTIONS[dir_idx]
+        
+        # Left vector
+        ldr, ldc = DIRECTIONS[left_dir]
+        
+        # Right vector
+        rdr, rdc = DIRECTIONS[right_dir]
+
+        # Dot products for relative direction
+        food_ahead = 1 if (df_r * dr + df_c * dc) > 0 else 0
+        food_left  = 1 if (df_r * ldr + df_c * ldc) > 0 else 0
+        food_right = 1 if (df_r * rdr + df_c * rdc) > 0 else 0
+
         return (
-            is_danger(self.game.dir),
+            is_danger(dir_idx),
             is_danger(left_dir),
             is_danger(right_dir),
-            1 if self.game.food[1] < head[1] else 0,
-            1 if self.game.food[1] > head[1] else 0,
-            1 if self.game.food[0] < head[0] else 0,
-            1 if self.game.food[0] > head[0] else 0,
+            food_ahead,
+            food_left,
+            food_right
         )
 
     def step(self, action):
         state = self.get_state()
+        
+        # Track distance before move to reward getting closer
+        head = self.game.snake[0]
+        food = self.game.food
+        old_dist = abs(head[0] - food[0]) + abs(head[1] - food[1])
+
         ate_food, game_over = self.game.step(action)
+
+        new_head = self.game.snake[0]
+        new_dist = abs(new_head[0] - food[0]) + abs(new_head[1] - food[1])
 
         if game_over:
             reward = -10
         elif ate_food:
             reward = 10
+        elif new_dist < old_dist:
+            reward = 0.1   # Small positive reward for stepping toward food
         else:
-            reward = -0.1
+            reward = -0.2  # Small penalty for stepping away from food
 
         next_state = self.get_state()
         return state, action, reward, next_state, game_over
-
+    
 class ScorePlotter:
     """Renders a live chart of scores and running average."""
 
@@ -213,13 +248,13 @@ class PygameRenderer:
 if __name__ == "__main__":
     game = SnakeGame()
     env = SnakeEnvironment(game)
-    agent = QLearningAgent()
+    agent = QLearningAgent(alpha=0.1, gamma=0.9, epsilon=1.0, min_epsilon=0.01, epsilon_decay=0.985)
     renderer = PygameRenderer()
-    plotter = ScorePlotter() 
+    plotter = ScorePlotter()
 
-    attempts = 1  # Track total games played
-
+    attempts = 1
     running = True
+
     while running:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -227,23 +262,22 @@ if __name__ == "__main__":
 
         state = env.get_state()
         action = agent.choose_action(state)
-        state, action, reward, next_state, game_over = env.step(action)
-        
-        agent.update(state, action, reward, next_state)
+
+        old_state, action, reward, next_state, game_over = env.step(action)
+        agent.update(old_state, action, reward, next_state, game_over)
 
         if game_over:
             print(f"Game Over! Attempt: {attempts} | Score: {game.score}")
             plotter.add_score(game.score)
             attempts += 1
-            agent.decay_epsilon()  # Reduce exploration rate gradually
+            agent.decay_epsilon()
             
-            if attempts >= 750:  # Stops after 750 attempts
+            if attempts >= 750:
                 running = False
             else:
                 game.reset()
-            
-            
+
         renderer.render(game, attempts, agent.epsilon)
 
     renderer.close()
-    plotter.fig.close()
+    plt.close(plotter.fig)  # Close the figure after the game loop ends
